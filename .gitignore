@@ -1,2 +1,2 @@
-# Ignore output of scraper
-data.sqlite
+data.sqlite # Ignore output of scraper
+.ruby-gemset
