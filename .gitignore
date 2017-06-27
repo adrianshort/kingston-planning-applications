@@ -1,2 +1,4 @@
 data.sqlite # Ignore output of scraper
 .ruby-gemset
+.ruby-version
+*.html

@@ -1,25 +1,55 @@
 # This is a template for a Ruby scraper on morph.io (https://morph.io)
 # including some code snippets below that you should find helpful
 
-# require 'scraperwiki'
-# require 'mechanize'
-#
-# agent = Mechanize.new
+require 'bundler'
+Bundler.setup
+require 'scraperwiki'
+require 'mechanize'
+require 'pp'
+
+BASEURL = "https://maps.kingston.gov.uk/propertyServices/planning/"
+
+agent = Mechanize.new
+agent.verify_mode = OpenSSL::SSL::VERIFY_NONE
 #
 # # Read in a page
-# page = agent.get("http://foo.com")
+page = agent.get("https://maps.kingston.gov.uk/propertyServices/planning/Summary?weekListType=SRCH&recFrom=01/Jan/2017&recTo=01/Feb/2017&ward=ALL&appTyp=ALL&wardTxt=All%20Wards&appTypTxt=All%20Application%20Types&limit=50")
 #
-# # Find somehing on the page using css selectors
-# p page.at('div.content')
-#
-# # Write out to the sqlite database using scraperwiki library
-# ScraperWiki.save_sqlite(["name"], {"name" => "susan", "occupation" => "software developer"})
-#
-# # An arbitrary query against the database
-# ScraperWiki.select("* from data where 'name'='peter'")
+# page = Nokogiri::HTML(open("page.html"))
 
-# You don't have to do things with the Mechanize or ScraperWiki libraries.
-# You can use whatever gems you want: https://morph.io/documentation/ruby
-# All that matters is that your final data is written to an SQLite database
-# called "data.sqlite" in the current working directory which has at least a table
-# called "data".
+apps = page.search("#planningApplication")
+
+apps.each do |app|
+  @title = app.at("h4").inner_text
+  @id = @title.match(/\d+\/\d+\/\w+/)[0]
+  puts @id
+  app.search("a").each do |link|
+    @url = BASEURL + link['href'].strip if link['href'].match(/Details\.aspx/)
+    puts @url
+    @map_url = link['href'].strip if link['href'].match(/\?map=/)
+  end
+  spans = app.search("span")
+  @description = spans[0].inner_text
+  @address = spans[1].inner_text
+  @ward = spans[2].inner_text
+  
+  begin
+    @date_valid = Date.parse(spans[3].inner_text)
+    @date_valid_text = nil
+  rescue ArgumentError
+    @date_valid = nil
+    @date_valid_text = spans[3].inner_text
+  end
+  
+  ScraperWiki.save_sqlite(["id"],
+    { 'id' => @id,
+      'url' => @url,
+      'title' => @title, 
+      'description' => @description,
+      'address' => @address,
+      'ward' => @ward,
+      'date_valid' => @date_valid,
+      'date_valid_text' => @date_valid_text,
+      'map_url' => @map_url
+  })
+end
