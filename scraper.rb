@@ -20,12 +20,11 @@ def parse(app)
   matches = record['title'].match(/(\d+\/\d+\/\w+)\s+-\s+(.+)/)
   record['council_reference'] = matches[1]
   record['type'] = matches[2]
-  # puts record['council_reference']
 
   app.search("a").each do |link|
     record['info_url'] = BASEURL + link['href'].strip if link['href'].match(/Details/)
     record['map_url'] = link['href'].strip if link['href'].match(/\?map=/)
-    record['images_url'] = link['href'].strip if link['href'].match(/ImageMenu/)
+    record['images_url'] = BASEURL + link['href'].strip if link['href'].match(/ImageMenu/)
     record['comment_url'] = BASEURL + link['href'].strip if link['href'].match(/PlanningComments/)
   end
 
