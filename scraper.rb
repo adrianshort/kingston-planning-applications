@@ -1,55 +1,88 @@
-# This is a template for a Ruby scraper on morph.io (https://morph.io)
-# including some code snippets below that you should find helpful
-
 require 'bundler'
 Bundler.setup
 require 'scraperwiki'
 require 'mechanize'
 require 'pp'
+require 'time'
+require 'date'
+require 'active_support/all'
+
+# Use the column names from planningalerts.org.au:
+# https://www.planningalerts.org.au/how_to_write_a_scraper
 
 BASEURL = "https://maps.kingston.gov.uk/propertyServices/planning/"
 
+# Parse and save a single planning application
+def parse(app)
+  record = {}
+  
+  record['title'] = app.at("h4").inner_text
+  matches = record['title'].match(/(\d+\/\d+\/\w+)\s+-\s+(.+)/)
+  record['council_reference'] = matches[1]
+  record['type'] = matches[2]
+  # puts record['council_reference']
+
+  app.search("a").each do |link|
+    record['info_url'] = BASEURL + link['href'].strip if link['href'].match(/Details/)
+    record['map_url'] = link['href'].strip if link['href'].match(/\?map=/)
+    record['images_url'] = link['href'].strip if link['href'].match(/ImageMenu/)
+    record['comment_url'] = BASEURL + link['href'].strip if link['href'].match(/PlanningComments/)
+  end
+
+  spans = app.search("span")
+  record['description'] = spans[0].inner_text
+  record['address'] = spans[1].inner_text
+  record['ward'] = spans[2].inner_text
+
+  # Decision and decision date
+  if matches = spans[4].inner_text.match(/(.+?)\s+(\d{1,2}\/\d{1,2}\/\d{4})/)
+    record['decision'] = matches[1]
+    record['date_decision'] = Date.parse(matches[2])
+  end
+  
+  # Comments/consultation - consultation end date can change during lifetime of application
+  app.search("dd").each do |dd|
+    if matches = dd.inner_text.match(/The current closing date for comments on this application is (\d{1,2}-[A-Z][a-z]{2}-\d{4})/)
+      record['on_notice_to'] = Date.parse(matches[1])
+    end
+  end
+  
+  # Date valid
+  begin
+    record['date_valid'] = Date.parse(spans[3].inner_text)
+    record['date_valid_text'] = nil
+  rescue ArgumentError
+    record['date_valid'] = nil
+    record['date_valid_text'] = spans[3].inner_text
+  end
+  
+  # Scraper timestamps
+  record['updated_at'] = Time.now
+  record['date_scraped'] = Date.today.to_s
+  
+  ScraperWiki.save_sqlite(['council_reference'], record)
+end
+
 agent = Mechanize.new
 agent.verify_mode = OpenSSL::SSL::VERIFY_NONE
-#
-# # Read in a page
-page = agent.get("https://maps.kingston.gov.uk/propertyServices/planning/Summary?weekListType=SRCH&recFrom=01/Jan/2017&recTo=01/Feb/2017&ward=ALL&appTyp=ALL&wardTxt=All%20Wards&appTypTxt=All%20Application%20Types&limit=50")
-#
-# page = Nokogiri::HTML(open("page.html"))
 
-apps = page.search("#planningApplication")
+# Get all valid applications for the last 12 * 30 days
+d = Date.today
 
-apps.each do |app|
-  @title = app.at("h4").inner_text
-  @id = @title.match(/\d+\/\d+\/\w+/)[0]
-  puts @id
-  app.search("a").each do |link|
-    @url = BASEURL + link['href'].strip if link['href'].match(/Details\.aspx/)
-    puts @url
-    @map_url = link['href'].strip if link['href'].match(/\?map=/)
-  end
-  spans = app.search("span")
-  @description = spans[0].inner_text
-  @address = spans[1].inner_text
-  @ward = spans[2].inner_text
+12.times do
+  d_start = (d - 29.days).strftime("%d/%m/%Y")
+  d_end = d.strftime("%d/%m/%Y")
   
-  begin
-    @date_valid = Date.parse(spans[3].inner_text)
-    @date_valid_text = nil
-  rescue ArgumentError
-    @date_valid = nil
-    @date_valid_text = spans[3].inner_text
-  end
-  
-  ScraperWiki.save_sqlite(["id"],
-    { 'id' => @id,
-      'url' => @url,
-      'title' => @title, 
-      'description' => @description,
-      'address' => @address,
-      'ward' => @ward,
-      'date_valid' => @date_valid,
-      'date_valid_text' => @date_valid_text,
-      'map_url' => @map_url
-  })
+  url = "#{BASEURL}Summary?weekListType=SRCH&recFrom=#{d_start}&recTo=#{d_end}&ward=ALL&appTyp=ALL&wardTxt=All%20Wards&appTypTxt=All%20Application%20Types&limit=500"
+  puts url
+
+  page = agent.get(url)
+  apps = page.search("#planningApplication")
+  puts apps.size, ''
+
+  apps.each { |app| parse(app) }
+  d -= 30.days
+  sleep 5
 end
+
+#  page = Nokogiri::HTML(open("page.html"))
