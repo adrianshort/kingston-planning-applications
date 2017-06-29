@@ -5,7 +5,6 @@ require 'mechanize'
 require 'pp'
 require 'time'
 require 'date'
-require 'active_support/all'
 
 # Use the column names from planningalerts.org.au:
 # https://www.planningalerts.org.au/how_to_write_a_scraper
@@ -69,7 +68,7 @@ agent.verify_mode = OpenSSL::SSL::VERIFY_NONE
 d = Date.today
 
 12.times do
-  d_start = (d - 29.days).strftime("%d/%m/%Y")
+  d_start = (d - 29).strftime("%d/%m/%Y")
   d_end = d.strftime("%d/%m/%Y")
   
   url = "#{BASEURL}Summary?weekListType=SRCH&recFrom=#{d_start}&recTo=#{d_end}&ward=ALL&appTyp=ALL&wardTxt=All%20Wards&appTypTxt=All%20Application%20Types&limit=500"
@@ -78,9 +77,9 @@ d = Date.today
   page = agent.get(url)
   apps = page.search("#planningApplication")
   puts apps.size, ''
-
+  
   apps.each { |app| parse(app) }
-  d -= 30.days
+  d -= 30
   sleep 5
 end
 
