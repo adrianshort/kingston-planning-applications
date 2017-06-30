@@ -5,6 +5,7 @@ require 'mechanize'
 require 'pp'
 require 'time'
 require 'date'
+require 'breasal'
 
 # Use the column names from planningalerts.org.au:
 # https://www.planningalerts.org.au/how_to_write_a_scraper
@@ -27,6 +28,15 @@ def parse(app)
     record['map_url'] = link['href'].strip if link['href'].match(/\?map=/)
     record['images_url'] = BASEURL + link['href'].strip if link['href'].match(/ImageMenu/)
     record['comment_url'] = BASEURL + link['href'].strip if link['href'].match(/PlanningComments/)
+  end
+
+  if record['map_url']
+    matches = record['map_url'].match(/x=(\d+)&y=(\d+)/)
+    record['easting'] = matches[1].to_i
+    record['northing'] = matches[2].to_i
+    en = Breasal::EastingNorthing.new(easting: record['easting'], northing: record['northing'], type: :gb)
+    record['latitude']= en.to_wgs84[:latitude]
+    record['longitude'] = en.to_wgs84[:longitude]
   end
 
   spans = app.search("span")
