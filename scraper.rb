@@ -9,17 +9,19 @@ require 'date'
 # Use the column names from planningalerts.org.au:
 # https://www.planningalerts.org.au/how_to_write_a_scraper
 
+LA_NAME = "Kingston upon Thames"
+LA_GSS = "E09000021" # https://mapit.mysociety.org/area/2480.html
 BASEURL = "https://maps.kingston.gov.uk/propertyServices/planning/"
 
 # Parse and save a single planning application
 def parse(app)
   record = {}
   
-  record['title'] = app.at("h4").inner_text
-  matches = record['title'].match(/(\d+\/\d+\/\w+)\s+-\s+(.+)/)
-  record['council_reference'] = matches[1]
-  record['type'] = matches[2]
-
+  record['la_name'] = LA_NAME
+  record['la_gss'] = LA_GSS
+  
+  record['council_reference'], record['type'] = app.at("h4").inner_text.split(' - ')
+  
   app.search("a").each do |link|
     record['info_url'] = BASEURL + link['href'].strip if link['href'].match(/Details/)
     record['map_url'] = link['href'].strip if link['href'].match(/\?map=/)
