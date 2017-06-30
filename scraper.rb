@@ -73,10 +73,14 @@ d = Date.today
   d_start = (d - 29).strftime("%d/%m/%Y")
   d_end = d.strftime("%d/%m/%Y")
   
-  url = "#{BASEURL}Summary?weekListType=SRCH&recFrom=#{d_start}&recTo=#{d_end}&ward=ALL&appTyp=ALL&wardTxt=All%20Wards&appTypTxt=All%20Application%20Types&limit=500"
-  puts url
-
-  page = agent.get(url)
+  if ENV['SCRAPER_LOCAL']
+    page = Nokogiri::HTML(open("page.html"))
+  else
+    url = "#{BASEURL}Summary?weekListType=SRCH&recFrom=#{d_start}&recTo=#{d_end}&ward=ALL&appTyp=ALL&wardTxt=All%20Wards&appTypTxt=All%20Application%20Types&limit=500"
+    page = agent.get(url)
+    puts url
+  end
+  
   apps = page.search("#planningApplication")
   puts apps.size, ''
   
