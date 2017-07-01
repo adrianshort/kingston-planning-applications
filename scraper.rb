@@ -12,6 +12,7 @@ require 'breasal'
 
 LA_NAME = "Kingston upon Thames"
 LA_GSS = "E09000021" # https://mapit.mysociety.org/area/2480.html
+LA_ONS = "00AX"
 BASEURL = "https://maps.kingston.gov.uk/propertyServices/planning/"
 
 # Parse and save a single planning application
@@ -20,9 +21,11 @@ def parse(app)
   
   record['la_name'] = LA_NAME
   record['la_gss'] = LA_GSS
+  record['la_ons'] = LA_ONS
   
   record['council_reference'], record['type'] = app.at("h4").inner_text.split(' - ')
   
+  # Links
   app.search("a").each do |link|
     record['info_url'] = BASEURL + link['href'].strip if link['href'].match(/Details/)
     record['map_url'] = link['href'].strip if link['href'].match(/\?map=/)
@@ -30,12 +33,13 @@ def parse(app)
     record['comment_url'] = BASEURL + link['href'].strip if link['href'].match(/PlanningComments/)
   end
 
+  # Coordinates
   if record['map_url']
     matches = record['map_url'].match(/x=(\d+)&y=(\d+)/)
     record['easting'] = matches[1].to_i
     record['northing'] = matches[2].to_i
     en = Breasal::EastingNorthing.new(easting: record['easting'], northing: record['northing'], type: :gb)
-    record['latitude']= en.to_wgs84[:latitude]
+    record['latitude'] = en.to_wgs84[:latitude]
     record['longitude'] = en.to_wgs84[:longitude]
   end
 
@@ -79,7 +83,7 @@ agent.verify_mode = OpenSSL::SSL::VERIFY_NONE
 # Get all valid applications for the last 12 * 30 days
 d = Date.today
 
-12.times do
+36.times do
   d_start = (d - 29).strftime("%d/%m/%Y")
   d_end = d.strftime("%d/%m/%Y")
   
